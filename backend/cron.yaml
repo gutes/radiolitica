@@ -1,0 +1,4 @@
+cron:
+- description: updates twitter data.
+  url: /private/tasks/update-tweetstreams
+  schedule: every 30 minutes

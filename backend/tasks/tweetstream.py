@@ -18,17 +18,17 @@ class UpdateTweetStreamTask(webapp2.RequestHandler):
         for tweetstream in model.TweetStream.query().fetch():
             logging.info("updating tweetstream: " + tweetstream.search_url)            
             
-            params = security.sign("/private/task/fetch-tweets", 
+            params = security.sign("/private/tasks/fetch-tweets", 
                                    keystore.TASK_KEYPAIR, 
                                    params={"su": tweetstream.search_url, "p": tweetstream.key.urlsafe() } )
 
-            taskqueue.add(url="/private/task/fetch-tweets", params=params, method="GET")
+            taskqueue.add(url="/private/tasks/fetch-tweets", params=params, method="GET", queue_name = "fetch-tweets")
                                                                     
 mention_expr = re.compile("(@\w+)", re.I)  
 hashtag_expr = re.compile("(#\w+)", re.I)
 class FetchTweetsSearchTask(webapp2.RequestHandler):
 
-    @security.check_signature("/private/task/fetch-tweets", keystore.TASK_KEYSTORE)
+    @security.check_signature("/private/tasks/fetch-tweets", keystore.TASK_KEYSTORE)
     def get(self):
         self.response.headers['Content-Type'] = 'text/plain'
         
@@ -52,10 +52,10 @@ class FetchTweetsSearchTask(webapp2.RequestHandler):
                                     
             next_page = search_result.get("next_page", None)                        
             if next_page: # queue next result page to fetch
-                params = security.sign("/private/task/fetch-tweets",
+                params = security.sign("/private/tasks/fetch-tweets",
                                        keystore.TASK_KEYPAIR, 
                                        params={"su": next_page, "p": stream.key.urlsafe() } )            
-                taskqueue.add(url="/private/task/fetch-tweets", params=params, method="GET")
+                taskqueue.add(url="/private/tasks/fetch-tweets", params=params, method="GET", queue_name = "fetch-tweets" )
             tweets = search_result.get("results", None)
             if tweets != None:
                 count = 0
