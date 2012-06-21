@@ -26,7 +26,6 @@ def check_signature(api_path, keystore):
             params_content = "&".join( [str(param[0])+"="+str(param[1]) for param in sorted(params.items(), key = lambda x:x[0])] )                    
 
             shared = self.request.path+":"+params_content+":"+self.request.body            
-            logging.info(">>got>>: " + shared)
             expected_signature = hmac.new(secret, shared, hashlib.sha256).hexdigest()            
 
             if expected_signature != signature:
@@ -46,7 +45,6 @@ def sign(api_path, key_pair, **kargs):
     content = kargs.get("content", "")
     params = kargs.get("params", {})            
     params_content = "&".join( [str(param[0])+"="+str(param[1]) for param in sorted(params.items(), key = lambda x:x[0])] )        
-    logging.info(">>expected>>: " + api_path+":"+params_content+":"+content)
     signature = hmac.new(secret, api_path+":"+params_content+":"+content, hashlib.sha256).hexdigest()    
     params.update({"k": api_k, "s":signature})
     return params
