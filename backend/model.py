@@ -28,8 +28,8 @@ class TweetStream(ndb.Model):
     def get_by_urlsafe(klass, k):
         return ndb.Key(urlsafe = k).get()
 
+
 class Tweet(ndb.Model):
-    stream = ndb.KeyProperty(kind = TweetStream, required = True)
     timestamp = ndb.DateTimeProperty(required = True)
     tweet_id = ndb.IntegerProperty(required = True)
     from_user = ndb.StringProperty(required = True)
@@ -40,3 +40,8 @@ class Tweet(ndb.Model):
     hashtags = ndb.StringProperty(repeated = True)
     mentions = ndb.StringProperty(repeated = True)
 
+class Tweets(ndb.Model):
+    stream = ndb.KeyProperty(kind = TweetStream, required = True)
+    start = ndb.DateTimeProperty(required = True)
+    end = ndb.DateTimeProperty(required = True)
+    tweets = ndb.LocalStructuredProperty(Tweet, repeated = True)

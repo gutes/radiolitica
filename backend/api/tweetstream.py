@@ -21,9 +21,10 @@ class StatTweetstreamsHandler(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'application/json'
         
         response = {}
-        for tweetstream in model.TweetStream.query().fetch():            
+        for tweetstream in model.TweetStream.query().fetch():      
+            count = sum(  [len(tweets.tweets) for tweets in model.Tweets.query( model.Tweets.stream == tweetstream.key ).fetch()] )
             response[tweetstream.key.urlsafe()] = {"last-update": str(tweetstream.last_update),
-                                                   "tweets-count": model.Tweet.query( model.Tweet.stream == tweetstream.key ).count() }
+                                                   "tweets-count":  count}
                                                                        
         self.response.out.write( json.dumps(response) )
         
