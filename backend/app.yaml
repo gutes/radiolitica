@@ -13,7 +13,7 @@ handlers:
   script: private.app
   login: admin
 
-- url: .*
+- url: /api/.*
   script: main.app
 
 libraries:
