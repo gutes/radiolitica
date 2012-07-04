@@ -7,7 +7,7 @@ import os
 # fix path
 sys.path.append( os.path.join( os.path.dirname( os.path.abspath(__file__) ), "..") )
 
-import security
+from lib import security
 import keystore
     
 params = security.sign("private/test/test-signature", keystore.TEST_KEYPAIR, params = {"a":"test", "b":42} )

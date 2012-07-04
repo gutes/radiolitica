@@ -1,8 +1,6 @@
 import webapp2
-from api.tweetstream import StatTweetstreamsHandler, AddTweetStreamHandler
-from api.fingerprint import AddFingerprintApiHandler, StatFingerprintsHandler
-
-from tasks.tweetstream import UpdateTweetStreamTask, FetchTweetsSearchTask
+from apis.tweetstream import StatTweetstreamsHandler, AddTweetStreamHandler
+from apis.fingerprint import AddFingerprintApiHandler, StatFingerprintsHandler
 
 debug = True
 

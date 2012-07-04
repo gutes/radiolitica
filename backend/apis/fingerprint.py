@@ -1,8 +1,8 @@
 import webapp2
 import json
 
-import security
-import model
+from lib import security
+from models import fingerprint
 import keystore
 
 class AddFingerprintApiHandler(webapp2.RequestHandler):
@@ -12,15 +12,14 @@ class AddFingerprintApiHandler(webapp2.RequestHandler):
         data = json.loads(self.request.body)
         
                 
-        fingerprints = [ model.FingerprintMatch( provider = f["provider"], 
+        fingerprints = [ fingerprint.FingerprintMatch( provider = f["provider"], 
                                                  title = f["title"],
                                                  artist = f["artist"], 
                                                  more = json.dumps(f["more"]) ) for f in data["fingerprints"] ] 
 
-        fingerprint = model.Fingerprint( station_id = data["stationid"], 
-                                         airtime = data["airtime"],
-                                         fingerprints = fingerprints)
-        fingerprint.put()
+        fingerprint.Fingerprint( station_id = data["stationid"],
+                                 airtime = data["airtime"],
+                                 fingerprints = fingerprints).put()
 
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write(self.request.body)
@@ -32,8 +31,6 @@ class StatFingerprintsHandler(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'application/json'
         
         response = {
-            "count": model.Fingerprint.query().count()
+            "count": fingerprint.Fingerprint.query().count()
         }
         self.response.out.write( json.dumps(response) )
-            
-        
