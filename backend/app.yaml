@@ -14,7 +14,7 @@ handlers:
   login: admin
 
 - url: /api/.*
-  script: main.app
+  script: api.app
 
 libraries:
 - name: webapp2
