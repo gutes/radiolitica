@@ -68,7 +68,7 @@ class Twitter(object):
         else:
             raise TwitterException("Twitter.availableTrends: invalid status_code:%d" % result.status_code)
             
-    def trends(self, woeid = 1):
+    def trends(self, woeid = 1): # 1 = worldwide
         result = urlfetch.fetch(url=Twitter.TRENDS % woeid, method=urlfetch.GET)
         if result.status_code == 200:
             results = json.loads(result.content)

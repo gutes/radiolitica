@@ -3,41 +3,57 @@ import hashlib
 import logging
 
 class InvalidSignature(Exception): pass
-def check_signature(api_path, keystore):        
-    def _checker(func):
-        def checked(self, *args, **kargs):
-            # naive signature checks
-            k = self.request.GET.getall('k')
-            if len(k) != 1:
-                raise InvalidSignature()
-            # BUGBUG: timming attack
-            secret = keystore.get(k[0], None)
-            if secret == None:
-                raise InvalidSignature()            
-            signature = self.request.GET.getall('s')
-            if len(k) != 1:
-                raise InvalidSignature()
-            signature = signature[0]    
-            
-            params = dict(self.request.GET)
-            del params["k"] # remove api-key
-            del params["s"] # remove signature
-            
-            params_content = "&".join( [str(param[0])+"="+str(param[1]) for param in sorted(params.items(), key = lambda x:x[0])] )                    
 
-            shared = self.request.path+":"+params_content+":"+self.request.body            
-            expected_signature = hmac.new(secret, shared, hashlib.sha256).hexdigest()            
 
-            if expected_signature != signature:
-                raise InvalidSignature()
+class SignatureChecker(object):
+    def __init__(self, keystore):
+        self.keystore = keystore
+        
+    def __call__(self, handler):
+        # naive signature checks
+        k = handler.request.GET.getall('k')
+        if len(k) != 1:
+            return False
+        # BUGBUG: timming attack
+        secret = self.keystore.get(k[0], None)
+        if secret == None:
+            return False
+        signature = handler.request.GET.getall('s')
+        if len(k) != 1:
+            return False
+        signature = signature[0]    
+            
+        params = dict(handler.request.GET)
+        del params["k"] # remove api-key
+        del params["s"] # remove signature
+            
+        params_content = "&".join( [str(param[0])+"="+str(param[1]) for param in sorted(params.items(), key = lambda x:x[0])] )                    
+
+        shared = handler.request.path+":"+params_content+":"+handler.request.body            
+        expected_signature = hmac.new(secret, shared, hashlib.sha256).hexdigest()            
+
+        # validate signature and validate path
+        if expected_signature == signature:
+            return True # the request is accepted.
+            
+        return False # the request is rejected.
+
+    def as_decorator(self, func):
+        def _sig_checker(handler, *args, **kargs):
+            if self(handler):
+                return func(handler, *args, **kargs)                        
+            raise InvalidSignature()
+        return _sig_checker
                 
-            # validate path
-            if api_path != self.request.path:
+    def as_filter( self ):
+        def _filter( handler ):
+            if not self(handler):
                 raise InvalidSignature()
+            return True
+        return _filter
             
-            return func(self, *args, **kargs)        
-        return checked
-    return _checker
+def check_signature(keystore):    
+    return lambda func: SignatureChecker(keystore).as_decorator(func)
 
 
 def sign(api_path, key_pair, **kargs):

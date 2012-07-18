@@ -16,5 +16,4 @@ h = httplib2.Http()
 resp, content = h.request("http://127.0.0.1:8081/api/stat-fingerprints?%s" % urlencode(args),"GET")
         
 print "resp", resp
-print "content", content    
-    
+print "content", content
