@@ -1,62 +1,89 @@
 import json
-import re
 from datetime import datetime
+from urllib import urlencode
+import urlparse
 
 from google.appengine.api import urlfetch
-from google.appengine.api import taskqueue
 
-from lib import security
 from models import twitter
-import logging
+from lib import publish
+from lib import log
 
 class TwitterException(Exception): pass
-class TwitterSearchResults(object):
-    MENTION_EXPR = re.compile("(@\w+)", re.I)  
-    HASHTAG_EXPR = re.compile("(#\w+)", re.I)
-    def __init__(self, content):
-        self.content = json.loads(content)
 
-    @property
-    def refresh_url(self):
-        return self.content.get("refresh_url", None)
-        
-    def tweets(self):
-        tweets = self.content.get("results", None)
-        if tweets != None:
-            return  [twitter.Tweet(tweet_id = tweet["id"],
-                     from_id = tweet["from_user_id"],
-                     to_id = tweet["to_user_id"] or 0,
-                     from_user = tweet["from_user"],
-                     to_user = tweet["to_user"] or "",
-                     hashtags = TwitterSearchResults.HASHTAG_EXPR.findall(tweet["text"]),
-                     mentions = TwitterSearchResults.MENTION_EXPR.findall(tweet["text"]),                                    
-                     timestamp = datetime.strptime( tweet["created_at"], "%a, %d %b %Y %H:%M:%S +0000"),
-                     text = tweet["text"]) for tweet in tweets]
-        return []
-                                                                  
-    def queue_next_page(self, stream, **kargs):
-        next_page = self.content.get("next_page", None)                        
-        if next_page: # queue next result page to fetch            
-            params = security.sign(kargs["task"],
-                                   kargs["keystore"], 
-                                   params={"su": next_page, "p": stream.key.urlsafe(), "update_stream":0} )            
-            taskqueue.add(url=kargs["task"], params=params, method="GET", queue_name = kargs["queue"]  )
-            return True
-        return False
-
-class Twitter(object):    
+@publish.task("twitter-search-page-worker", queue = "fetch-tweets")
+def twitter_search_page_worker(callback_blob, query_string, context):
     
-    SEARCH_URL = "http://search.twitter.com/search.json%s"
+    # fetch with retry.    
+    max_retry = 3
+    retry = max_retry        
+    while retry:
+        try:
+            response = urlfetch.fetch(url=TwitterSearchRequest.URL % query_string, method=urlfetch.GET)
+            break # request complete
+        except Exception, e:            
+            retry -= 1 # another try.
+            retry_in = (2 ** (max_retry-retry)) * 1000
+            log.warning("Twitter.twitter_search_page_worker: urlfetch retry #%d (sleep %ds)" % (max_retry-retry, retry_in) )
+            time.sleep( retry_in )
+                        
+    if response.status_code == 200:
+        results = json.loads(response.content) # decode json response
+        retry = 0 # request finished
+    else:
+        raise TwitterException("Twitter.task.twitter_search_page_worker: invalid status_code: %d" % result.status_code)
+    
+    # deserialize the callback task.
+    callback = publish.Task( urlsafe = callback_blob )
+    callback(results, context)
+            
+    # queue next page if any
+    next_page_query_string = results.get("next_page", None)                     
+    if next_page_query_string:
+        twitter_search_page_worker(callback_blob, next_page_query_string, context) # queue next page
+
+class TwitterSearchRequest(object):
+    URL = "http://search.twitter.com/search.json%s"
+        
+    def __init__(self, query, **kargs):
+        self.query = query
+        self.args = kargs
+
+    @staticmethod
+    def fromQS(qs):
+        try:
+            params = dict( urlparse.parse_qsl(urlparse.urlparse(qs).query) ) # WARNING: merge duplicates.
+            q = params["q"]
+            del params["q"] # remove q from parameters
+            return TwitterSearchRequest(q, **params)
+        except Exception,e:
+            raise TwitterException("TwitterSearchRequest.fromQS:"+str(e) )
+        
+    def fetch(self, callback, context = None):
+        # queue task to fetch
+        twitter_search_page_worker(callback.urlsafe(), self.query_string(), context or {} )
+            
+    def query_string(self):        
+        qs = {"q":self.query}
+        qs.update(self.args)        
+        return "?" + urlencode(qs)
+
+    def __str__(self):
+        return self.query_string()
+    
+class Twitter(object):
     AVAILABLE_TRENDS = "https://api.twitter.com/1/trends/available.json"
     TRENDS = "https://api.twitter.com/1/trends/%s.json"
-    
-    def search(self, qs):
-        result = urlfetch.fetch(url=Twitter.SEARCH_URL % qs, method=urlfetch.GET)
-        if result.status_code == 200:
-            return TwitterSearchResults(result.content)
-        else:
-            raise TwitterException("Twitter.search: invalid status_code:%d" % result.status_code)
-    
+            
+    @staticmethod
+    def search(query = None, **kargs):        
+        qs = kargs.get("qs", None)
+        if qs:
+            return TwitterSearchRequest.fromQS(qs)            
+        if query == None:
+            raise TwitterException("Twitter.search: invalid query string.")
+        return TwitterSearchRequest(query, **kargs)        
+
     
     def availableTrends(self, **filters):
         result = urlfetch.fetch(url=Twitter.AVAILABLE_TRENDS, method=urlfetch.GET)

@@ -13,7 +13,7 @@ test_keypair = "0448ec365f8589121da335e075911ec8406f7d41", "b1641edb368b10998209
 
 command = {
     "station_id": "a0001",
-    "search_url": "?q=@la100fm",
+    "query": "@la100fm",
 }
 body_content = json.dumps(command)
 
