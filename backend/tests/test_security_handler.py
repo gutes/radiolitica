@@ -1,5 +1,5 @@
 import webapp2
-import security
+from lib import security
 import keystore
 
 class TestSignatureHandler(webapp2.RequestHandler):

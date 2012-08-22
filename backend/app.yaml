@@ -10,12 +10,12 @@ handlers:
   upload: favicon\.ico
 
 - url: /private/.*
-  script: private.app
+  script: main.private
   login: admin
 
 - url: /api/.*
-  script: api.app
-
+  script: main.api
+  
 libraries:
 - name: webapp2
   version: "2.5.1"
